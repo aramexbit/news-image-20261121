@@ -1,0 +1,9 @@
+# Build and runtime outputs for The World Herald entry.
+# (Entry sources and assets are tracked; only outputs are ignored.)
+out/
+out2/
+__pycache__/
+*.pyc
+*.log
+transcripts.tar.gz
+.DS_Store
