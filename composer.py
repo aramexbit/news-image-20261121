@@ -251,13 +251,23 @@ def draw_feature(d, canvas, x, y, w, story, photo_h, head_size=15):
     return y
 
 
-def draw_wide(d, canvas, x, y, w, story):
+def draw_wide(d, canvas, x, y, w, story, photo_dx=0, photo_dy=0,
+              photo_h=92):
+    """Wide story: photo left, text right. Only the photo may be
+    nudged (photo_dx/photo_dy); the kicker, headline and deck never
+    move, so a nudge can clear a neighbouring line without shifting
+    any text. photo_h trims the photo so a downward nudge still ends
+    exactly on the row bottom instead of clipping the next section.
+    """
     assets = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "assets")
     pw = 168
-    img = cover(os.path.join(assets, story["photo"]), pw, 92, focus_y=0.45)
-    canvas.paste(img, (x, y))
-    d.rectangle([x, y, x + pw - 1, y + 91], outline=NAVY, width=1)
+    px, py = x + photo_dx, y + photo_dy
+    img = cover(os.path.join(assets, story["photo"]), pw, photo_h,
+                focus_y=0.45)
+    canvas.paste(img, (px, py))
+    d.rectangle([px, py, px + pw - 1, py + photo_h - 1], outline=NAVY,
+                width=1)
     tx = x + pw + 10
     tw = w - pw - 10
     kf = font(SANS_B, 10)
@@ -271,7 +281,7 @@ def draw_wide(d, canvas, x, y, w, story):
     for line in wrap(d, story["deck"], df, tw):
         d.text((tx, yy), line, font=df, fill=MUTED)
         yy += 14
-    return max(y + 92, yy)
+    return max(py + photo_h, yy)
 
 
 def build_page(out_path):
@@ -389,7 +399,20 @@ def build_page(out_path):
     # Wide row: COP31 + cancer pill, photo left, text right.
     wide_w = (CW - 14) // 2
     for i, story in enumerate(WIDE):
-        draw_wide(d, img, MARGIN + i * (wide_w + 14), y, wide_w, story)
+        if i == 1:
+            # Cancer pill: the doctor photo sat flush on the deck line
+            # above it (its top frame touched the "h" of "Hodeidah.")
+            # and only 10 px from the headline. Nudge the photo alone
+            # left 8 and down 4, 4 px shorter, so its top clears the
+            # deck above, its right edge sits ~18 px from the headline,
+            # and its bottom still meets the row exactly without
+            # clipping the "ALSO ON SATURDAY" header below. The text
+            # does not move, and the COP31 cell on the left is untouched.
+            draw_wide(d, img, MARGIN + i * (wide_w + 14), y, wide_w,
+                      story, photo_dx=-8, photo_dy=4, photo_h=88)
+        else:
+            draw_wide(d, img, MARGIN + i * (wide_w + 14), y, wide_w,
+                      story)
     y += 80 + 6
     y += 6
 
