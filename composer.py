@@ -2,8 +2,9 @@
 
 Draws one 1024x1024 classic newspaper front page (35 stories) with
 Pillow. Deterministic: fixed palette, fixed fonts, fixed assets, no
-clock, no network, no randomness. The paper speckle is pure arithmetic
-((x * 73 + y * 131) % 89), so every run writes identical bytes.
+clock, no network, no randomness. The paper background is a real
+newsprint photograph (assets/paper_bg.png) cover-cropped to the page,
+so every run writes identical bytes.
 """
 
 import os
@@ -14,9 +15,7 @@ W, H = 1024, 1024
 MARGIN = 28
 CW = W - 2 * MARGIN  # 968
 
-PAPER = (243, 234, 211)
-PAPER_DARK = (233, 220, 189)
-PAPER_SPECK = (226, 212, 178)
+PAPER = (243, 234, 211)  # kept for the globe's meridians and land
 NAVY = (22, 41, 77)
 NAVY_SOFT = (31, 56, 100)
 RED = (163, 22, 33)
@@ -139,28 +138,32 @@ MAP_DOTS = {
 }
 
 
-def draw_world_map(d, x0, y0, w, h):
+def draw_world_map(canvas, x0, y0, w, h):
+    """Numbered world map, clipped strictly inside its w x h box.
+
+    Continents and red story dots are drawn on a separate layer the
+    exact size of the box, then pasted with its own alpha mask, so no
+    pixel can escape the box, cover the briefs, or cross a rule. No
+    box outline and no grid lines: continents and dots sit directly
+    on the paper texture.
+    """
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
     sx, sy = w / 300.0, h / 132.0
-    d.rectangle([x0, y0, x0 + w, y0 + h], fill=PAPER_DARK,
-                outline=NAVY, width=1)
-    for gx in range(1, 6):
-        gx0 = x0 + int(gx * w / 6)
-        d.line([gx0, y0, gx0, y0 + h], fill=(210, 196, 160), width=1)
-    for gy in range(1, 4):
-        gy0 = y0 + int(gy * h / 4)
-        d.line([x0, gy0, x0 + w, gy0], fill=(210, 196, 160), width=1)
     for poly in CONTINENTS:
-        pts = [(x0 + int(px * sx), y0 + int(py * sy)) for px, py in poly]
-        d.polygon(pts, fill=(232, 218, 182), outline=NAVY)
+        pts = [(int(px * sx), int(py * sy)) for px, py in poly]
+        d.polygon(pts, fill=(232, 218, 182, 255), outline=NAVY + (255,))
     nf = font(SANS_B, 8)
     for num, (mx, my) in sorted(MAP_DOTS.items()):
-        cx, cy = x0 + int(mx * sx), y0 + int(my * sy)
-        d.ellipse([cx - 6, cy - 6, cx + 6, cy + 6], fill=RED,
-                  outline=WHITE, width=1)
+        cx, cy = int(mx * sx), int(my * sy)
+        d.ellipse([cx - 6, cy - 6, cx + 6, cy + 6], fill=RED + (255,),
+                  outline=WHITE + (255,), width=1)
         label = str(num)
         tw = d.textlength(label, font=nf)
         th = d.textbbox((0, 0), label, font=nf)[3]
-        d.text((cx - tw / 2, cy - th / 2 - 1), label, font=nf, fill=WHITE)
+        d.text((cx - tw / 2, cy - th / 2 - 1), label, font=nf,
+               fill=WHITE + (255,))
+    canvas.paste(layer, (x0, y0), layer)
 
 
 # ---------------------------------------------------------------- stories
@@ -273,14 +276,12 @@ def draw_wide(d, canvas, x, y, w, story):
 def build_page(out_path):
     assets = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "assets")
-    img = Image.new("RGB", (W, H), PAPER)
+    # Real newsprint photograph as the base layer: cover-cropped to
+    # the full page, so the paper grain, vignette and fold are even
+    # across the sheet. No flat fill, no arithmetic speckle, and no
+    # flat paper patch anywhere else on the page.
+    img = cover(os.path.join(assets, "paper_bg.png"), W, H)
     d = ImageDraw.Draw(img)
-
-    # Aged-paper speckle (pure arithmetic, deterministic).
-    for px in range(0, W, 7):
-        for py in range(0, H, 7):
-            if (px * 73 + py * 131) % 89 < 5:
-                d.point((px, py), fill=PAPER_SPECK)
 
     # Gold top rule.
     d.rectangle([MARGIN, 6, W - MARGIN, 10], fill=GOLD)
@@ -362,13 +363,16 @@ def build_page(out_path):
         my += 13
 
     y = hy + 192
-    d.line([MARGIN, y, W - MARGIN, y], fill=NAVY, width=1)
     lab = "MORE OF THE DAY"
     lf = font(SERIF_B, 16)
     lw = d.textlength(lab, font=lf)
-    d.rectangle([MARGIN, y - 9, MARGIN + 18 + lw + 12, y + 9], fill=PAPER)
+    lab_end = MARGIN + 18 + lw + 12
+    # No flat paper chip behind the label: the rule starts after the
+    # label, so the red square and the navy title sit straight on the
+    # paper texture with no patch showing.
     d.rectangle([MARGIN, y - 6, MARGIN + 12, y + 6], fill=RED)
     d.text((MARGIN + 18, y - 8), lab, font=lf, fill=NAVY)
+    d.line([lab_end + 6, y, W - MARGIN, y], fill=NAVY, width=1)
     y += 10
 
     # Featured grid: 3 columns x 2 rows, all with photographs.
@@ -395,7 +399,7 @@ def build_page(out_path):
     bt = "ALSO ON SATURDAY — 25 MORE STORIES"
     d.text((MARGIN + 312, y), bt, font=bh_f, fill=NAVY)
     y += 18
-    draw_world_map(d, MARGIN, y, 300, 126)
+    draw_world_map(img, MARGIN, y, 300, 126)
     src_f = font(SANS, 9)
     d.text((MARGIN, y + 130),
            "Sources: wire reports from 21 Nov 2026. "
