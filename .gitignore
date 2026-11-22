@@ -1,9 +1,8 @@
-# Build and runtime outputs for The World Herald entry.
-# (Entry sources and assets are tracked; only outputs are ignored.)
+# Build output
 out/
-out2/
+# Python artefacts
 __pycache__/
 *.pyc
 *.log
-transcripts.tar.gz
 .DS_Store
+# v7: classic broadsheet layout, 35 stories
