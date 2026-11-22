@@ -144,7 +144,8 @@ def draw_world_map(canvas, x0, y0, w, h):
     Continents and red story dots are drawn on a separate layer the
     exact size of the box, then pasted with its own alpha mask, so no
     pixel can escape the box, cover the briefs, or cross a rule. No
-    box outline and no grid lines: continents and dots sit directly
+    box outline, no grid lines, and no continent outlines at all:
+    the continents read by their tan fill alone, sitting directly
     on the paper texture.
     """
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -152,7 +153,7 @@ def draw_world_map(canvas, x0, y0, w, h):
     sx, sy = w / 300.0, h / 132.0
     for poly in CONTINENTS:
         pts = [(int(px * sx), int(py * sy)) for px, py in poly]
-        d.polygon(pts, fill=(232, 218, 182, 255), outline=NAVY + (255,))
+        d.polygon(pts, fill=(220, 201, 160, 255))
     nf = font(SANS_B, 8)
     for num, (mx, my) in sorted(MAP_DOTS.items()):
         cx, cy = int(mx * sx), int(my * sy)
@@ -390,10 +391,11 @@ def build_page(out_path):
     for i, story in enumerate(WIDE):
         draw_wide(d, img, MARGIN + i * (wide_w + 14), y, wide_w, story)
     y += 80 + 6
-    d.line([MARGIN, y, W - MARGIN, y], fill=NAVY, width=1)
     y += 6
 
     # Bottom block: numbered world map + 25 briefs in two columns.
+    # No rule line above this block: the two section headers alone
+    # mark it, so no line can be crossed or overlapped here.
     bh_f = font(SERIF_B, 14)
     d.text((MARGIN, y), "AROUND THE WORLD", font=bh_f, fill=NAVY)
     bt = "ALSO ON SATURDAY — 25 MORE STORIES"
